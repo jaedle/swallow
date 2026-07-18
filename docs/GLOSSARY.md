@@ -16,5 +16,7 @@
   originating stream.
 - **Replay** — streaming the log back after a failed run in agent mode,
   restoring stdout lines to stdout and stderr lines to stderr.
+- **Read** — printing a stored log verbatim via `swallow --read`, permitted
+  only for logs of the current origin (the same-origin gate).
 - **Retention** — the two-hour lifetime of logs; older logs are pruned at the
   start of every run.

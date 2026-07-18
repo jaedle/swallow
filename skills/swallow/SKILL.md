@@ -26,7 +26,8 @@ swallow npm install
 
 ## Notes
 
-- Need output from a successful run? Read or grep the printed log path.
+- Need output from a successful run? Print it with
+  `swallow --read <log-path>` (works only from the same working directory).
 - Skip swallow when the output is the answer (`git diff`, `cat`) or for
   interactive commands.
 - If `swallow` is not on PATH, run the command directly.
