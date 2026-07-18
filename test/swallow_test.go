@@ -123,7 +123,7 @@ var _ = Describe("agent mode", func() {
 		wait(session, 0)
 
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(MatchRegexp("^running: sh, swallowing output\ndone: exit code 0, read logs: `swallow --read [^/`]+\\.log`\n$"))
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, read logs: `swallow --read [^/`]+\\.log`\n$"))
 		Expect(session.Err.Contents()).To(BeEmpty())
 		log := logContent(singleLog(swallowDir))
 		Expect(log).To(ContainSubstring("out|to-stdout\n"))
@@ -166,9 +166,9 @@ var _ = Describe("agent mode", func() {
 		Expect(stdout).To(ContainSubstring("second-out\n"))
 		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
 		stderr := string(session.Err.Contents())
-		Expect(stderr).To(HavePrefix("done: exit code 3, full output:\n"))
+		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, full output:\n"))
 		Expect(stderr).To(ContainSubstring("to-stderr\n"))
-		Expect(stderr).NotTo(ContainSubstring("read logs"))
+		Expect(stderr).To(MatchRegexp("swallow: end of output, exit code 3, read logs: `swallow --read [^/`]+\\.log`\n$"))
 	})
 
 	It("never echoes command arguments", func() {
@@ -193,8 +193,7 @@ var _ = Describe("agent mode", func() {
 			wait(session, 0)
 
 			Expect(session.Out).To(gbytes.Say("visible"))
-			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("running:"))
-			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("done:"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("swallow:"))
 		}
 	})
 })

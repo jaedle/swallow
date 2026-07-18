@@ -6,18 +6,20 @@ full output always lands in a log file.
 
 ```
 $ CLAUDECODE=1 swallow go test ./...
-running: go, swallowing output
-done: exit code 0, read logs: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
+swallow: running go, swallowing output
+swallow: done, exit code 0, read logs: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
 ```
 
 ## Behavior
 
 - **Agent mode** (`CLAUDECODE=1`, set by Claude Code): output is suppressed.
   On success swallow prints the two lines above — the `--read` hint is
-  directly runnable. On failure it prints `done: exit code <n>, full output:`
-  and replays the complete output — stdout to stdout, stderr to stderr — and
-  exits with the command's exit code. Command arguments are never echoed
-  (they may contain shell-expanded secrets).
+  directly runnable. On failure it prints `swallow: done, exit code <n>,
+  full output:`, replays the output — stdout to stdout, stderr to stderr —
+  and closes with a `swallow: end of output, …` marker carrying the read
+  hint, exiting with the command's exit code. Lines swallow prints itself
+  always start with `swallow: `; command arguments are never echoed (they
+  may contain shell-expanded secrets).
 - **Human mode** (otherwise): output passes through live, and is still
   captured in the log.
 - Logs: one file per run under `~/.swallow/<origin>/` (override the root with

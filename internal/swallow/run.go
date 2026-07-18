@@ -60,7 +60,7 @@ func Run(argv []string) int {
 		// The command name only — echoed arguments could leak shell-expanded
 		// secrets into the caller's context, see ADR 0009. Printed only once
 		// the command has started, so every start line gets a done line.
-		fmt.Printf("running: %s, swallowing output\n", filepath.Base(argv[0]))
+		fmt.Printf("swallow: running %s, swallowing output\n", filepath.Base(argv[0]))
 	}
 
 	var tee, teeErr io.Writer
@@ -84,11 +84,13 @@ func Run(argv []string) int {
 	_ = logFile.Close()
 
 	if agent {
+		hint := fmt.Sprintf("read logs: `swallow --read %s`", filepath.Base(logPath))
 		if code == 0 {
-			fmt.Printf("done: exit code 0, read logs: `swallow --read %s`\n", filepath.Base(logPath))
+			fmt.Printf("swallow: done, exit code 0, %s\n", hint)
 		} else {
-			fmt.Fprintf(os.Stderr, "done: exit code %d, full output:\n", code)
+			fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output:\n", code)
 			replay(logPath)
+			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, %s\n", code, hint)
 		}
 	}
 

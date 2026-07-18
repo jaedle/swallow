@@ -21,12 +21,15 @@ swallow npm install
 ```
 
 Output while the command runs is a single start line —
-`running: <command>, swallowing output` — nothing else until it finishes.
+`swallow: running <command>, swallowing output` — nothing else until it
+finishes. Lines swallow prints itself always start with `swallow: `;
+anything else is output of the wrapped command.
 
-- Success: `` done: exit code 0, read logs: `swallow --read <log-file>` `` —
-  the hinted command is directly runnable.
-- Failure: `done: exit code <n>, full output:` followed by the complete
-  replayed output; swallow exits with the command's exit code.
+- Success: `` swallow: done, exit code 0, read logs: `swallow --read
+  <log-file>` `` — the hinted command is directly runnable.
+- Failure: `swallow: done, exit code <n>, full output:` followed by the
+  replayed output and a closing `swallow: end of output, …` marker carrying
+  the same read hint; swallow exits with the command's exit code.
 
 ## Notes
 
