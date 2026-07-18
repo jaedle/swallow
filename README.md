@@ -36,6 +36,13 @@ mise use -g ubi:jaedle/swallow
 Or grab a static binary for linux/darwin (amd64/arm64) from the
 [releases](https://github.com/jaedle/swallow/releases).
 
+To teach your coding agent to use swallow, install the
+[agent skill](skills/swallow/SKILL.md):
+
+```sh
+npx skills add jaedle/swallow
+```
+
 ## Usage
 
 ```
