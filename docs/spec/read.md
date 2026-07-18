@@ -16,7 +16,9 @@ directly into the origin directory of the working directory swallow is
 invoked from — `<swallow dir>/<slug(cwd)>/`. Logs of other origins, or any
 path outside the swallow dir, are refused.
 
-- A relative path is resolved against the working directory.
+- A bare file name (no path separator) is resolved against the current
+  origin directory, so the hint printed after a run works verbatim.
+- Any other relative path is resolved against the working directory.
 - The path is lexically cleaned before the check, so `..` segments cannot
   escape the gate.
 - On refusal swallow prints `swallow: refusing to read <path>: not a log of

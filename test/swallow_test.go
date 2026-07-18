@@ -256,6 +256,37 @@ var _ = Describe("reading a log", func() {
 		Expect(session.Err.Contents()).To(BeEmpty())
 	})
 
+	It("resolves a bare file name against the current origin directory", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		log := filepath.Join(swallowDir, slugOf(origin), "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(log, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", filepath.Base(log)},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(Equal("out|content\n"))
+	})
+
+	It("cannot reach another origin's log via a bare file name", func() {
+		swallowDir := GinkgoT().TempDir()
+		foreign := filepath.Join(swallowDir, "other-origin", "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(foreign, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        GinkgoT().TempDir(),
+			args:       []string{"--read", filepath.Base(foreign)},
+		})
+		wait(session, 1)
+
+		Expect(session.Out.Contents()).To(BeEmpty())
+	})
+
 	It("resolves a relative path against the working directory", func() {
 		swallowDir := GinkgoT().TempDir()
 		origin := GinkgoT().TempDir()
