@@ -99,25 +99,59 @@ func slugOf(path string) string {
 	return strings.Trim(regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(path, "-"), "-")
 }
 
+// readHint extracts the hinted `swallow --read <name>` invocation from a
+// success summary line, as arguments for the binary.
+func readHint(session *gexec.Session) []string {
+	GinkgoHelper()
+
+	match := regexp.MustCompile("`swallow (--read [^`]+)`").FindStringSubmatch(string(session.Out.Contents()))
+	Expect(match).To(HaveLen(2))
+	return strings.Fields(match[1])
+}
+
 var _ = Describe("agent mode", func() {
-	It("suppresses output and reports success with the log location", func() {
+	It("announces the run, suppresses output and reports success with a runnable read hint", func() {
 		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
 
 		session := run(runOptions{
 			agent:      true,
 			swallowDir: swallowDir,
+			dir:        origin,
 			args:       []string{"sh", "-c", "echo to-stdout; echo to-stderr 1>&2"},
 		})
 		wait(session, 0)
 
-		Expect(string(session.Out.Contents())).To(MatchRegexp(`^everything went fine \(log: .*\.log\)\n$`))
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, 2 log lines, read logs: `swallow --read [^/`]+\\.log`\n$"))
 		Expect(session.Err.Contents()).To(BeEmpty())
 		log := logContent(singleLog(swallowDir))
 		Expect(log).To(ContainSubstring("out|to-stdout\n"))
 		Expect(log).To(ContainSubstring("err|to-stderr\n"))
 	})
 
-	It("replays the full output split by stream on failure and propagates the exit code", func() {
+	It("offers a read hint that works verbatim from the same working directory", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		capture := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"echo", "captured"},
+		})
+		wait(capture, 0)
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       readHint(capture),
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(ContainSubstring("out|captured\n"))
+	})
+
+	It("reports failure first, then replays the full output split by stream", func() {
 		swallowDir := GinkgoT().TempDir()
 
 		session := run(runOptions{
@@ -132,8 +166,39 @@ var _ = Describe("agent mode", func() {
 		Expect(stdout).To(ContainSubstring("second-out\n"))
 		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
 		stderr := string(session.Err.Contents())
+		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, full output (3 lines):\n"))
 		Expect(stderr).To(ContainSubstring("to-stderr\n"))
-		Expect(stderr).To(MatchRegexp(`command failed with exit code 3 \(log: .*\.log\)`))
+		Expect(stderr).To(MatchRegexp("swallow: end of output, exit code 3, read logs: `swallow --read [^/`]+\\.log`\n$"))
+	})
+
+	It("replays only the last 100 lines of a large failing output", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", "seq 150; exit 3"},
+		})
+		wait(session, 3)
+
+		stderr := string(session.Err.Contents())
+		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, last 100 of 150 lines:\n"))
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(HavePrefix("swallow: running sh, swallowing output\n51\n"))
+		Expect(stdout).To(HaveSuffix("150\n"))
+		Expect(stdout).NotTo(ContainSubstring("\n50\n"))
+	})
+
+	It("never echoes command arguments", func() {
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"true", "--token", "s3cr3t-value"},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
+		Expect(string(session.Err.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
 	})
 
 	It("treats only CLAUDECODE=1 as an agentic caller", func() {
@@ -146,7 +211,7 @@ var _ = Describe("agent mode", func() {
 			wait(session, 0)
 
 			Expect(session.Out).To(gbytes.Say("visible"))
-			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("everything went fine"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("swallow:"))
 		}
 	})
 })
@@ -185,6 +250,22 @@ var _ = Describe("logging", func() {
 		log := singleLog(swallowDir)
 		Expect(filepath.Dir(log)).To(Equal(filepath.Join(swallowDir, slugOf(origin))))
 		Expect(filepath.Base(log)).To(MatchRegexp(`^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-cat-[0-9a-f]{6}\.log$`))
+	})
+
+	It("slugs the command name so the read hint stays shell-safe", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		script := filepath.Join(origin, "my test.sh")
+		Expect(os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{script},
+		})
+		wait(session, 0)
+
+		Expect(filepath.Base(singleLog(swallowDir))).To(MatchRegexp(`-my-test-sh-[0-9a-f]{6}\.log$`))
 	})
 
 	It("creates a distinct log for every run", func() {
@@ -254,6 +335,37 @@ var _ = Describe("reading a log", func() {
 		Expect(stdout).To(ContainSubstring("out|to-stdout\n"))
 		Expect(stdout).To(ContainSubstring("err|to-stderr\n"))
 		Expect(session.Err.Contents()).To(BeEmpty())
+	})
+
+	It("resolves a bare file name against the current origin directory", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		log := filepath.Join(swallowDir, slugOf(origin), "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(log, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", filepath.Base(log)},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(Equal("out|content\n"))
+	})
+
+	It("cannot reach another origin's log via a bare file name", func() {
+		swallowDir := GinkgoT().TempDir()
+		foreign := filepath.Join(swallowDir, "other-origin", "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(foreign, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        GinkgoT().TempDir(),
+			args:       []string{"--read", filepath.Base(foreign)},
+		})
+		wait(session, 1)
+
+		Expect(session.Out.Contents()).To(BeEmpty())
 	})
 
 	It("resolves a relative path against the working directory", func() {
@@ -351,6 +463,32 @@ var _ = Describe("reading a log", func() {
 	})
 })
 
+var _ = Describe("cli", func() {
+	It("prints the usage on --help and exits successfully", func() {
+		for _, flag := range []string{"--help", "-h"} {
+			session := run(runOptions{
+				swallowDir: GinkgoT().TempDir(),
+				args:       []string{flag},
+			})
+			wait(session, 0)
+
+			Expect(session.Out).To(gbytes.Say(`usage:`))
+			Expect(session.Out).To(gbytes.Say(`swallow \[--\] <command>`))
+			Expect(session.Err.Contents()).To(BeEmpty())
+		}
+	})
+
+	It("wraps a command named --help via the -- separator", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"--", "--help"},
+		})
+		wait(session, 127)
+
+		Expect(session.Err).To(gbytes.Say("command not found: --help"))
+	})
+})
+
 var _ = Describe("process control", func() {
 	It("propagates the exit code of the wrapped command", func() {
 		session := run(runOptions{
@@ -423,6 +561,7 @@ var _ = Describe("process control", func() {
 		})
 		wait(session, 2)
 
-		Expect(session.Err).To(gbytes.Say(`usage: swallow \[--\] <command>`))
+		Expect(session.Err).To(gbytes.Say(`usage:`))
+		Expect(session.Err).To(gbytes.Say(`swallow \[--\] <command>`))
 	})
 })

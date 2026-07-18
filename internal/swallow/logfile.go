@@ -54,7 +54,9 @@ func createLog(argv0 string) (string, *os.File, error) {
 		return "", nil, err
 	}
 
-	name := time.Now().Format(timestampFormat) + "-" + filepath.Base(argv0) + "-" + suffix + ".log"
+	// The command component is slugged so the log name is always shell-safe:
+	// the read hint printed after a run must be runnable verbatim.
+	name := time.Now().Format(timestampFormat) + "-" + slug(filepath.Base(argv0)) + "-" + suffix + ".log"
 	path := filepath.Join(origin, name)
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_EXCL, 0o644)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Read prints a stored log verbatim to stdout. The same-origin gate only
@@ -21,12 +22,18 @@ func Read(path string) int {
 
 	resolved := path
 	if !filepath.IsAbs(resolved) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
-			return 1
+		// A bare file name resolves against the origin so the read hint
+		// works verbatim; anything with a separator stays cwd-relative.
+		base := origin
+		if strings.ContainsRune(resolved, os.PathSeparator) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
+				return 1
+			}
+			base = cwd
 		}
-		resolved = filepath.Join(cwd, resolved)
+		resolved = filepath.Join(base, resolved)
 	}
 	resolved = filepath.Clean(resolved)
 

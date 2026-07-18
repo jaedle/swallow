@@ -6,15 +6,20 @@ full output always lands in a log file.
 
 ```
 $ CLAUDECODE=1 swallow go test ./...
-everything went fine (log: /home/you/.swallow/home-you-project/2026-07-18T10-15-30-go-a1b2c3.log)
+swallow: running go, swallowing output
+swallow: done, exit code 0, 214 log lines, read logs: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
 ```
 
 ## Behavior
 
 - **Agent mode** (`CLAUDECODE=1`, set by Claude Code): output is suppressed.
-  On success swallow prints the single line above. On failure it replays the
-  complete output — stdout to stdout, stderr to stderr — and exits with the
-  command's exit code.
+  On success swallow prints the two lines above — the `--read` hint is
+  directly runnable. On failure it prints `swallow: done, exit code <n>, …`,
+  replays the last 100 output lines — stdout to stdout, stderr to stderr —
+  and closes with a `swallow: end of output, …` marker carrying the read
+  hint, exiting with the command's exit code. Lines swallow prints itself
+  always start with `swallow: `; command arguments are never echoed (they
+  may contain shell-expanded secrets).
 - **Human mode** (otherwise): output passes through live, and is still
   captured in the log.
 - Logs: one file per run under `~/.swallow/<origin>/` (override the root with
@@ -23,9 +28,9 @@ everything went fine (log: /home/you/.swallow/home-you-project/2026-07-18T10-15-
 - stdin, `SIGINT`/`SIGTERM` and the exit code pass through to the wrapped
   command.
 - **Reading logs**: `swallow --read <log-file>` prints a captured log
-  verbatim. Only logs of the current origin can be read — the path must
-  point into the log directory of the working directory swallow is invoked
-  from; anything else is refused.
+  verbatim; a bare file name resolves against the current origin's log
+  directory. Only logs of the current origin can be read — anything else is
+  refused.
 
 Full specification: [docs/SPEC.md](docs/SPEC.md).
 
@@ -53,6 +58,7 @@ npx skills add jaedle/swallow
 swallow [--] <command> [args...]
 swallow --read <log-file>
 swallow --version
+swallow --help
 ```
 
 The command is executed directly, without a shell.

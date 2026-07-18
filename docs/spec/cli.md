@@ -6,6 +6,7 @@
 swallow [--] <command> [args...]
 swallow --read <log-file>
 swallow --version
+swallow --help
 ```
 
 - Everything after `swallow` (and an optional `--` separator) is the command,
@@ -14,6 +15,9 @@ swallow --version
 - `--read`: print a captured log, see [reading logs](read.md). A command named
   `--read` can be wrapped via the `--` separator.
 - `--version`: print the version, exit `0`.
+- `--help` (or `-h`): print the usage — all invocation forms with a one-line
+  description each — to stdout, exit `0`. Like `--read`, a command named
+  `--help` can be wrapped via the `--` separator.
 
 ## stdin
 

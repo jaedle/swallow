@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -16,6 +17,12 @@ import (
 const (
 	tagStdout = "out|"
 	tagStderr = "err|"
+
+	// replayLimit caps the lines replayed after a failure: a huge failing
+	// output would flood the caller's context, defeating swallow's purpose.
+	// The last lines win — that is where the error usually is; the full log
+	// stays available via the read hint.
+	replayLimit = 100
 )
 
 func Run(argv []string) int {
@@ -55,6 +62,13 @@ func Run(argv []string) int {
 		return 126
 	}
 
+	if agent {
+		// The command name only — echoed arguments could leak shell-expanded
+		// secrets into the caller's context, see ADR 0009. Printed only once
+		// the command has started, so every start line gets a done line.
+		fmt.Printf("swallow: running %s, swallowing output\n", filepath.Base(argv[0]))
+	}
+
 	var tee, teeErr io.Writer
 	if !agent {
 		tee, teeErr = os.Stdout, os.Stderr
@@ -76,11 +90,19 @@ func Run(argv []string) int {
 	_ = logFile.Close()
 
 	if agent {
+		hint := fmt.Sprintf("read logs: `swallow --read %s`", filepath.Base(logPath))
+		lines := countLogLines(logPath)
 		if code == 0 {
-			fmt.Printf("everything went fine (log: %s)\n", logPath)
+			fmt.Printf("swallow: done, exit code 0, %d log lines, %s\n", lines, hint)
 		} else {
-			replay(logPath)
-			fmt.Fprintf(os.Stderr, "swallow: command failed with exit code %d (log: %s)\n", code, logPath)
+			if lines > replayLimit {
+				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, last %d of %d lines:\n", code, replayLimit, lines)
+				replay(logPath, lines-replayLimit)
+			} else {
+				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output (%d lines):\n", code, lines)
+				replay(logPath, 0)
+			}
+			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, %s\n", code, hint)
 		}
 	}
 
@@ -96,8 +118,31 @@ func forward(signals <-chan os.Signal, cmd *exec.Cmd) {
 	}
 }
 
+// countLogLines counts the tagged lines of a log by streaming over it;
+// memory usage stays bounded by the longest single line.
+func countLogLines(path string) int {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = file.Close() }()
+
+	count := 0
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			count++
+		}
+		if err != nil {
+			return count
+		}
+	}
+}
+
 // replay streams the log back, restoring every line to its original stream.
-func replay(path string) {
+// The first skip lines are dropped, implementing the replay cap.
+func replay(path string, skip int) {
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
@@ -109,13 +154,17 @@ func replay(path string) {
 	for {
 		line, err := reader.ReadString('\n')
 		if len(line) > 0 {
-			target := os.Stdout
-			if rest, ok := strings.CutPrefix(line, tagStderr); ok {
-				target, line = os.Stderr, rest
-			} else if rest, ok := strings.CutPrefix(line, tagStdout); ok {
-				line = rest
+			if skip > 0 {
+				skip--
+			} else {
+				target := os.Stdout
+				if rest, ok := strings.CutPrefix(line, tagStderr); ok {
+					target, line = os.Stderr, rest
+				} else if rest, ok := strings.CutPrefix(line, tagStdout); ok {
+					line = rest
+				}
+				_, _ = target.Write([]byte(line))
 			}
-			_, _ = target.Write([]byte(line))
 		}
 		if err != nil {
 			return
