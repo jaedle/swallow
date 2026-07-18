@@ -21,15 +21,19 @@ func Read(path string) int {
 	}
 
 	resolved := path
-	if !filepath.IsAbs(resolved) && !strings.ContainsRune(resolved, os.PathSeparator) {
-		resolved = filepath.Join(origin, resolved)
-	} else if !filepath.IsAbs(resolved) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
-			return 1
+	if !filepath.IsAbs(resolved) {
+		// A bare file name resolves against the origin so the read hint
+		// works verbatim; anything with a separator stays cwd-relative.
+		base := origin
+		if strings.ContainsRune(resolved, os.PathSeparator) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
+				return 1
+			}
+			base = cwd
 		}
-		resolved = filepath.Join(cwd, resolved)
+		resolved = filepath.Join(base, resolved)
 	}
 	resolved = filepath.Clean(resolved)
 

@@ -38,12 +38,6 @@ func Run(argv []string) int {
 	}
 	defer func() { _ = logFile.Close() }()
 
-	if agent {
-		// argv[0] only — echoed arguments could leak shell-expanded secrets
-		// into the caller's context, see ADR 0009.
-		fmt.Printf("running: %s, swallowing output\n", argv[0])
-	}
-
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = os.Stdin
 	stdout, err := cmd.StdoutPipe()
@@ -60,6 +54,13 @@ func Run(argv []string) int {
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
 		return 126
+	}
+
+	if agent {
+		// The command name only — echoed arguments could leak shell-expanded
+		// secrets into the caller's context, see ADR 0009. Printed only once
+		// the command has started, so every start line gets a done line.
+		fmt.Printf("running: %s, swallowing output\n", filepath.Base(argv[0]))
 	}
 
 	var tee, teeErr io.Writer

@@ -10,11 +10,12 @@ value — including empty or `true` — means human mode.
 
 ## Agent mode
 
-- Before the command runs, swallow prints a start line to stdout:
-  `running: <command>, swallowing output`. `<command>` is the command name
-  (argv[0]) only — arguments are never echoed, because the shell substitutes
+- Once the command has started, swallow prints a start line to stdout:
+  `running: <command>, swallowing output`. `<command>` is the basename of
+  argv[0] only — arguments are never echoed, because the shell substitutes
   variables before swallow sees them, so echoed arguments could leak secrets
-  into the caller's context (see ADR 0009).
+  into the caller's context (see ADR 0009). A command that cannot be started
+  produces no start line, so every start line is followed by a summary line.
 - The wrapped command's output is fully suppressed while it runs; it is only
   written to the [log](logging.md). Nothing is printed while the command
   runs.
