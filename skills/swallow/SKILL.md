@@ -25,11 +25,13 @@ Output while the command runs is a single start line —
 finishes. Lines swallow prints itself always start with `swallow: `;
 anything else is output of the wrapped command.
 
-- Success: `` swallow: done, exit code 0, read logs: `swallow --read
-  <log-file>` `` — the hinted command is directly runnable.
-- Failure: `swallow: done, exit code <n>, full output:` followed by the
-  replayed output and a closing `swallow: end of output, …` marker carrying
-  the same read hint; swallow exits with the command's exit code.
+- Success: `` swallow: done, exit code 0, <n> log lines, read logs:
+  `swallow --read <log-file>` `` — the hinted command is directly runnable;
+  the line count tells you whether reading is worthwhile.
+- Failure: `swallow: done, exit code <n>, …` followed by the replayed
+  output (capped at the last 100 lines) and a closing `swallow: end of
+  output, …` marker carrying the same read hint; swallow exits with the
+  command's exit code. Use the hint when the replay was truncated.
 
 ## Notes
 

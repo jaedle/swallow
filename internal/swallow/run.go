@@ -17,6 +17,12 @@ import (
 const (
 	tagStdout = "out|"
 	tagStderr = "err|"
+
+	// replayLimit caps the lines replayed after a failure: a huge failing
+	// output would flood the caller's context, defeating swallow's purpose.
+	// The last lines win — that is where the error usually is; the full log
+	// stays available via the read hint.
+	replayLimit = 100
 )
 
 func Run(argv []string) int {
@@ -85,11 +91,17 @@ func Run(argv []string) int {
 
 	if agent {
 		hint := fmt.Sprintf("read logs: `swallow --read %s`", filepath.Base(logPath))
+		lines := countLogLines(logPath)
 		if code == 0 {
-			fmt.Printf("swallow: done, exit code 0, %s\n", hint)
+			fmt.Printf("swallow: done, exit code 0, %d log lines, %s\n", lines, hint)
 		} else {
-			fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output:\n", code)
-			replay(logPath)
+			if lines > replayLimit {
+				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, last %d of %d lines:\n", code, replayLimit, lines)
+				replay(logPath, lines-replayLimit)
+			} else {
+				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output (%d lines):\n", code, lines)
+				replay(logPath, 0)
+			}
 			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, %s\n", code, hint)
 		}
 	}
@@ -106,8 +118,31 @@ func forward(signals <-chan os.Signal, cmd *exec.Cmd) {
 	}
 }
 
+// countLogLines counts the tagged lines of a log by streaming over it;
+// memory usage stays bounded by the longest single line.
+func countLogLines(path string) int {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = file.Close() }()
+
+	count := 0
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			count++
+		}
+		if err != nil {
+			return count
+		}
+	}
+}
+
 // replay streams the log back, restoring every line to its original stream.
-func replay(path string) {
+// The first skip lines are dropped, implementing the replay cap.
+func replay(path string, skip int) {
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
@@ -119,13 +154,17 @@ func replay(path string) {
 	for {
 		line, err := reader.ReadString('\n')
 		if len(line) > 0 {
-			target := os.Stdout
-			if rest, ok := strings.CutPrefix(line, tagStderr); ok {
-				target, line = os.Stderr, rest
-			} else if rest, ok := strings.CutPrefix(line, tagStdout); ok {
-				line = rest
+			if skip > 0 {
+				skip--
+			} else {
+				target := os.Stdout
+				if rest, ok := strings.CutPrefix(line, tagStderr); ok {
+					target, line = os.Stderr, rest
+				} else if rest, ok := strings.CutPrefix(line, tagStdout); ok {
+					line = rest
+				}
+				_, _ = target.Write([]byte(line))
 			}
-			_, _ = target.Write([]byte(line))
 		}
 		if err != nil {
 			return
