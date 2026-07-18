@@ -90,6 +90,58 @@ func slugOf(path string) string {
 	return strings.Trim(regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(path, "-"), "-")
 }
 
+var _ = Describe("agent mode", func() {
+	It("suppresses output and reports success with the log location", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", "echo to-stdout; echo to-stderr 1>&2"},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(MatchRegexp(`^everything went fine \(log: .*\.log\)\n$`))
+		Expect(session.Err.Contents()).To(BeEmpty())
+		log := logContent(singleLog(swallowDir))
+		Expect(log).To(ContainSubstring("out|to-stdout\n"))
+		Expect(log).To(ContainSubstring("err|to-stderr\n"))
+	})
+
+	It("replays the full output split by stream on failure and propagates the exit code", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", "echo first-out; echo to-stderr 1>&2; echo second-out; exit 3"},
+		})
+		wait(session, 3)
+
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(ContainSubstring("first-out\n"))
+		Expect(stdout).To(ContainSubstring("second-out\n"))
+		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
+		stderr := string(session.Err.Contents())
+		Expect(stderr).To(ContainSubstring("to-stderr\n"))
+		Expect(stderr).To(MatchRegexp(`command failed with exit code 3 \(log: .*\.log\)`))
+	})
+
+	It("treats only CLAUDECODE=1 as an agentic caller", func() {
+		for _, value := range []string{"CLAUDECODE=", "CLAUDECODE=true"} {
+			session := run(runOptions{
+				swallowDir: GinkgoT().TempDir(),
+				env:        []string{value},
+				args:       []string{"echo", "visible"},
+			})
+			wait(session, 0)
+
+			Expect(session.Out).To(gbytes.Say("visible"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("everything went fine"))
+		}
+	})
+})
+
 var _ = Describe("human mode", func() {
 	It("tees stdout and stderr live and captures both in the log", func() {
 		swallowDir := GinkgoT().TempDir()

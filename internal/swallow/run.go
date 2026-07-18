@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 )
@@ -56,9 +57,45 @@ func Run(argv []string) int {
 	wg.Wait()
 
 	code := exitCode(cmd.Wait())
+	_ = logFile.Close()
 
-	_ = logPath
+	if agent {
+		if code == 0 {
+			fmt.Printf("everything went fine (log: %s)\n", logPath)
+		} else {
+			replay(logPath)
+			fmt.Fprintf(os.Stderr, "swallow: command failed with exit code %d (log: %s)\n", code, logPath)
+		}
+	}
+
 	return code
+}
+
+// replay streams the log back, restoring every line to its original stream.
+func replay(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "swallow: %v\n", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			target := os.Stdout
+			if rest, ok := strings.CutPrefix(line, tagStderr); ok {
+				target, line = os.Stderr, rest
+			} else if rest, ok := strings.CutPrefix(line, tagStdout); ok {
+				line = rest
+			}
+			_, _ = target.Write([]byte(line))
+		}
+		if err != nil {
+			return
+		}
+	}
 }
 
 // capture streams one child stream line-wise into the shared log, prefixing
