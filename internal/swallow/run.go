@@ -21,6 +21,10 @@ const (
 func Run(argv []string) int {
 	agent := os.Getenv("CLAUDECODE") == "1"
 
+	if dir, err := swallowDir(); err == nil {
+		prune(dir)
+	}
+
 	if _, err := exec.LookPath(argv[0]); err != nil {
 		fmt.Fprintf(os.Stderr, "swallow: command not found: %s\n", argv[0])
 		return 127

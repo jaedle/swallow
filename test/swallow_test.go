@@ -85,6 +85,14 @@ func logContent(path string) string {
 	return string(content)
 }
 
+func writeLog(path string, modified time.Time) {
+	GinkgoHelper()
+
+	Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
+	Expect(os.WriteFile(path, []byte("out|content\n"), 0o644)).To(Succeed())
+	Expect(os.Chtimes(path, modified, modified)).To(Succeed())
+}
+
 // slugOf mirrors the specified origin slug: non-alphanumeric runs become a
 // single dash, trimmed at both ends.
 func slugOf(path string) string {
@@ -198,6 +206,27 @@ var _ = Describe("logging", func() {
 		wait(session, 0)
 
 		Expect(findLogs(filepath.Join(home, ".swallow"))).To(HaveLen(1))
+	})
+})
+
+var _ = Describe("retention", func() {
+	It("prunes logs older than two hours and their emptied origin directories", func() {
+		swallowDir := GinkgoT().TempDir()
+		old := filepath.Join(swallowDir, "old-origin", "old.log")
+		fresh := filepath.Join(swallowDir, "fresh-origin", "fresh.log")
+		writeLog(old, time.Now().Add(-3*time.Hour))
+		writeLog(fresh, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			args:       []string{"true"},
+		})
+		wait(session, 0)
+
+		Expect(old).NotTo(BeAnExistingFile())
+		Expect(filepath.Dir(old)).NotTo(BeADirectory())
+		Expect(fresh).To(BeAnExistingFile())
+		Expect(swallowDir).To(BeADirectory())
 	})
 })
 
