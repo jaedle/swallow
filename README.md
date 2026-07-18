@@ -22,6 +22,10 @@ everything went fine (log: /home/you/.swallow/home-you-project/2026-07-18T10-15-
   older than two hours are pruned on every run.
 - stdin, `SIGINT`/`SIGTERM` and the exit code pass through to the wrapped
   command.
+- **Reading logs**: `swallow --read <log-file>` prints a captured log
+  verbatim. Only logs of the current origin can be read — the path must
+  point into the log directory of the working directory swallow is invoked
+  from; anything else is refused.
 
 Full specification: [docs/SPEC.md](docs/SPEC.md).
 
@@ -47,6 +51,7 @@ npx skills add jaedle/swallow
 
 ```
 swallow [--] <command> [args...]
+swallow --read <log-file>
 swallow --version
 ```
 

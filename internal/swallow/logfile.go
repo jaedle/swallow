@@ -24,18 +24,27 @@ func swallowDir() (string, error) {
 	return filepath.Join(home, ".swallow"), nil
 }
 
-func createLog(argv0 string) (string, *os.File, error) {
+// originDir resolves the log directory for the current origin, the working
+// directory swallow was invoked from.
+func originDir() (string, error) {
 	dir, err := swallowDir()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
-	origin := filepath.Join(dir, slug(cwd))
+	return filepath.Join(dir, slug(cwd)), nil
+}
+
+func createLog(argv0 string) (string, *os.File, error) {
+	origin, err := originDir()
+	if err != nil {
+		return "", nil, err
+	}
 	if err := os.MkdirAll(origin, 0o755); err != nil {
 		return "", nil, err
 	}

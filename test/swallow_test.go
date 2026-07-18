@@ -230,6 +230,127 @@ var _ = Describe("retention", func() {
 	})
 })
 
+var _ = Describe("reading a log", func() {
+	It("prints a log of the current origin verbatim", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		capture := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"sh", "-c", "echo to-stdout; echo to-stderr 1>&2"},
+		})
+		wait(capture, 0)
+		log := singleLog(swallowDir)
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", log},
+		})
+		wait(session, 0)
+
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(ContainSubstring("out|to-stdout\n"))
+		Expect(stdout).To(ContainSubstring("err|to-stderr\n"))
+		Expect(session.Err.Contents()).To(BeEmpty())
+	})
+
+	It("resolves a relative path against the working directory", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		log := filepath.Join(swallowDir, slugOf(origin), "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(log, time.Now())
+		relative, err := filepath.Rel(origin, log)
+		Expect(err).NotTo(HaveOccurred())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", relative},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(Equal("out|content\n"))
+	})
+
+	It("refuses a log of a different origin without disclosing its existence", func() {
+		swallowDir := GinkgoT().TempDir()
+		foreign := filepath.Join(swallowDir, "other-origin", "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(foreign, time.Now())
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        GinkgoT().TempDir(),
+			args:       []string{"--read", foreign},
+		})
+		wait(session, 1)
+
+		Expect(session.Out.Contents()).To(BeEmpty())
+		Expect(string(session.Err.Contents())).To(ContainSubstring("refusing to read"))
+	})
+
+	It("refuses paths escaping the origin directory via traversal", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		foreign := filepath.Join(swallowDir, "other-origin", "2026-07-18T10-15-30-go-a1b2c3.log")
+		writeLog(foreign, time.Now())
+		traversal := filepath.Join(swallowDir, slugOf(origin), "..", "other-origin", filepath.Base(foreign))
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", traversal},
+		})
+		wait(session, 1)
+
+		Expect(session.Out.Contents()).To(BeEmpty())
+		Expect(string(session.Err.Contents())).To(ContainSubstring("refusing to read"))
+	})
+
+	It("fails on a missing log of the current origin", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		missing := filepath.Join(swallowDir, slugOf(origin), "2026-07-18T10-15-30-go-a1b2c3.log")
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", missing},
+		})
+		wait(session, 1)
+
+		Expect(session.Out.Contents()).To(BeEmpty())
+		Expect(string(session.Err.Contents())).NotTo(ContainSubstring("refusing to read"))
+	})
+
+	It("rejects --read without an operand as a usage error", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"--read"},
+		})
+		wait(session, 2)
+
+		Expect(string(session.Err.Contents())).To(ContainSubstring("usage"))
+	})
+
+	It("never prunes logs", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		old := filepath.Join(swallowDir, slugOf(origin), "2026-07-18T08-15-30-go-a1b2c3.log")
+		writeLog(old, time.Now().Add(-3*time.Hour))
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"--read", old},
+		})
+		wait(session, 0)
+
+		Expect(old).To(BeAnExistingFile())
+	})
+})
+
 var _ = Describe("process control", func() {
 	It("propagates the exit code of the wrapped command", func() {
 		session := run(runOptions{

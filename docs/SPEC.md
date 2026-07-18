@@ -8,6 +8,7 @@ This document is the index. The behavior is specified per aspect:
 - [CLI](spec/cli.md) — invocation, arguments, exit codes, stdin, signals
 - [Modes](spec/modes.md) — agent mode vs. human mode, suppression, replay
 - [Logging](spec/logging.md) — log location, naming, format, streaming
+- [Reading logs](spec/read.md) — `--read`, same-origin gate
 - [Retention](spec/retention.md) — pruning of old logs
 
 Terms are defined in the [glossary](GLOSSARY.md). Decisions are recorded as

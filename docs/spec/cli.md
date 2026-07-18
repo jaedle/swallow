@@ -4,12 +4,15 @@
 
 ```
 swallow [--] <command> [args...]
+swallow --read <log-file>
 swallow --version
 ```
 
 - Everything after `swallow` (and an optional `--` separator) is the command,
   executed directly — no shell interpretation.
 - Without a command: usage on stderr, exit `2`.
+- `--read`: print a captured log, see [reading logs](read.md). A command named
+  `--read` can be wrapped via the `--` separator.
 - `--version`: print the version, exit `0`.
 
 ## stdin
