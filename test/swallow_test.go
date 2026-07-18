@@ -448,12 +448,37 @@ var _ = Describe("process control", func() {
 		Expect(session.Out).To(gbytes.Say("hi"))
 	})
 
+	It("prints the usage on --help and exits successfully", func() {
+		for _, flag := range []string{"--help", "-h"} {
+			session := run(runOptions{
+				swallowDir: GinkgoT().TempDir(),
+				args:       []string{flag},
+			})
+			wait(session, 0)
+
+			Expect(session.Out).To(gbytes.Say(`usage:`))
+			Expect(session.Out).To(gbytes.Say(`swallow \[--\] <command>`))
+			Expect(session.Err.Contents()).To(BeEmpty())
+		}
+	})
+
+	It("wraps a command named --help via the -- separator", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"--", "--help"},
+		})
+		wait(session, 127)
+
+		Expect(session.Err).To(gbytes.Say("command not found: --help"))
+	})
+
 	It("prints usage and fails without a command", func() {
 		session := run(runOptions{
 			swallowDir: GinkgoT().TempDir(),
 		})
 		wait(session, 2)
 
-		Expect(session.Err).To(gbytes.Say(`usage: swallow \[--\] <command>`))
+		Expect(session.Err).To(gbytes.Say(`usage:`))
+		Expect(session.Err).To(gbytes.Say(`swallow \[--\] <command>`))
 	})
 })
