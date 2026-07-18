@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,6 +37,12 @@ func Run(argv []string) int {
 		return 1
 	}
 	defer func() { _ = logFile.Close() }()
+
+	if agent {
+		// argv[0] only — echoed arguments could leak shell-expanded secrets
+		// into the caller's context, see ADR 0009.
+		fmt.Printf("running: %s, swallowing output\n", argv[0])
+	}
 
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = os.Stdin
@@ -77,10 +84,10 @@ func Run(argv []string) int {
 
 	if agent {
 		if code == 0 {
-			fmt.Printf("everything went fine (log: %s)\n", logPath)
+			fmt.Printf("done: exit code 0, read logs: `swallow --read %s`\n", filepath.Base(logPath))
 		} else {
+			fmt.Fprintf(os.Stderr, "done: exit code %d, full output:\n", code)
 			replay(logPath)
-			fmt.Fprintf(os.Stderr, "swallow: command failed with exit code %d (log: %s)\n", code, logPath)
 		}
 	}
 

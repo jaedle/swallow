@@ -20,14 +20,19 @@ swallow go test ./...
 swallow npm install
 ```
 
-- Success: one line — `everything went fine (log: <path>)`.
-- Failure: the complete output is replayed, and swallow exits with the
-  command's exit code.
+Output while the command runs is a single start line —
+`running: <command>, swallowing output` — nothing else until it finishes.
+
+- Success: `` done: exit code 0, read logs: `swallow --read <log-file>` `` —
+  the hinted command is directly runnable.
+- Failure: `done: exit code <n>, full output:` followed by the complete
+  replayed output; swallow exits with the command's exit code.
 
 ## Notes
 
-- Need output from a successful run? Print it with
-  `swallow --read <log-path>` (works only from the same working directory).
+- Need output from a successful run? Run the hinted
+  `swallow --read <log-file>` command verbatim (works only from the same
+  working directory).
 - Skip swallow when the output is the answer (`git diff`, `cat`) or for
   interactive commands.
 - If `swallow` is not on PATH, run the command directly.

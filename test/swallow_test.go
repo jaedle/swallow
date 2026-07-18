@@ -100,24 +100,50 @@ func slugOf(path string) string {
 }
 
 var _ = Describe("agent mode", func() {
-	It("suppresses output and reports success with the log location", func() {
+	It("announces the run, suppresses output and reports success with a runnable read hint", func() {
 		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
 
 		session := run(runOptions{
 			agent:      true,
 			swallowDir: swallowDir,
+			dir:        origin,
 			args:       []string{"sh", "-c", "echo to-stdout; echo to-stderr 1>&2"},
 		})
 		wait(session, 0)
 
-		Expect(string(session.Out.Contents())).To(MatchRegexp(`^everything went fine \(log: .*\.log\)\n$`))
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(MatchRegexp("^running: sh, swallowing output\ndone: exit code 0, read logs: `swallow --read [^/`]+\\.log`\n$"))
 		Expect(session.Err.Contents()).To(BeEmpty())
 		log := logContent(singleLog(swallowDir))
 		Expect(log).To(ContainSubstring("out|to-stdout\n"))
 		Expect(log).To(ContainSubstring("err|to-stderr\n"))
 	})
 
-	It("replays the full output split by stream on failure and propagates the exit code", func() {
+	It("offers a read hint that works verbatim from the same working directory", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+		capture := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"echo", "captured"},
+		})
+		wait(capture, 0)
+		hint := regexp.MustCompile("`swallow (--read [^`]+)`").FindStringSubmatch(string(capture.Out.Contents()))
+		Expect(hint).To(HaveLen(2))
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       strings.Fields(hint[1]),
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(ContainSubstring("out|captured\n"))
+	})
+
+	It("reports failure first, then replays the full output split by stream", func() {
 		swallowDir := GinkgoT().TempDir()
 
 		session := run(runOptions{
@@ -132,8 +158,21 @@ var _ = Describe("agent mode", func() {
 		Expect(stdout).To(ContainSubstring("second-out\n"))
 		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
 		stderr := string(session.Err.Contents())
+		Expect(stderr).To(HavePrefix("done: exit code 3, full output:\n"))
 		Expect(stderr).To(ContainSubstring("to-stderr\n"))
-		Expect(stderr).To(MatchRegexp(`command failed with exit code 3 \(log: .*\.log\)`))
+		Expect(stderr).NotTo(ContainSubstring("read logs"))
+	})
+
+	It("never echoes command arguments", func() {
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"true", "--token", "s3cr3t-value"},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
+		Expect(string(session.Err.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
 	})
 
 	It("treats only CLAUDECODE=1 as an agentic caller", func() {
@@ -146,7 +185,8 @@ var _ = Describe("agent mode", func() {
 			wait(session, 0)
 
 			Expect(session.Out).To(gbytes.Say("visible"))
-			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("everything went fine"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("running:"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("done:"))
 		}
 	})
 })
