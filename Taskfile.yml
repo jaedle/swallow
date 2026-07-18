@@ -22,12 +22,17 @@ tasks:
     cmds:
       - go build -ldflags='-s -w' -o out/swallow ./cmd/swallow
 
+  verify-skill:
+    cmds:
+      - npx --yes skills add ./ --list | grep -q 'Found 1 skill'
+
   ci:
     cmds:
       - task: fmt
       - task: lint
       - task: test
       - task: build
+      - task: verify-skill
 
   manage-dependencies:
     cmds:
