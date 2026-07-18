@@ -3,11 +3,14 @@ package swallow_test
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -56,6 +59,94 @@ func wait(session *gexec.Session, exitCode int) {
 
 	Eventually(session, processTimeout).Should(gexec.Exit(exitCode))
 }
+
+func findLogs(swallowDir string) []string {
+	GinkgoHelper()
+
+	logs, err := filepath.Glob(filepath.Join(swallowDir, "*", "*.log"))
+	Expect(err).NotTo(HaveOccurred())
+	return logs
+}
+
+func singleLog(swallowDir string) string {
+	GinkgoHelper()
+
+	logs := findLogs(swallowDir)
+	Expect(logs).To(HaveLen(1))
+	return logs[0]
+}
+
+func logContent(path string) string {
+	GinkgoHelper()
+
+	content, err := os.ReadFile(path)
+	Expect(err).NotTo(HaveOccurred())
+	return string(content)
+}
+
+// slugOf mirrors the specified origin slug: non-alphanumeric runs become a
+// single dash, trimmed at both ends.
+func slugOf(path string) string {
+	return strings.Trim(regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(path, "-"), "-")
+}
+
+var _ = Describe("human mode", func() {
+	It("tees stdout and stderr live and captures both in the log", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", "echo to-stdout; echo to-stderr 1>&2"},
+		})
+		wait(session, 0)
+
+		Expect(session.Out).To(gbytes.Say("to-stdout"))
+		Expect(string(session.Out.Contents())).NotTo(ContainSubstring("to-stderr"))
+		Expect(session.Err).To(gbytes.Say("to-stderr"))
+		log := logContent(singleLog(swallowDir))
+		Expect(log).To(ContainSubstring("out|to-stdout\n"))
+		Expect(log).To(ContainSubstring("err|to-stderr\n"))
+	})
+})
+
+var _ = Describe("logging", func() {
+	It("names the log after origin, timestamp, command and a unique suffix", func() {
+		swallowDir := GinkgoT().TempDir()
+		origin := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			dir:        origin,
+			args:       []string{"cat", "/dev/null"},
+		})
+		wait(session, 0)
+
+		log := singleLog(swallowDir)
+		Expect(filepath.Dir(log)).To(Equal(filepath.Join(swallowDir, slugOf(origin))))
+		Expect(filepath.Base(log)).To(MatchRegexp(`^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-cat-[0-9a-f]{6}\.log$`))
+	})
+
+	It("creates a distinct log for every run", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		wait(run(runOptions{swallowDir: swallowDir, args: []string{"true"}}), 0)
+		wait(run(runOptions{swallowDir: swallowDir, args: []string{"true"}}), 0)
+
+		Expect(findLogs(swallowDir)).To(HaveLen(2))
+	})
+
+	It("defaults to .swallow in the home directory", func() {
+		home := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			home: home,
+			args: []string{"true"},
+		})
+		wait(session, 0)
+
+		Expect(findLogs(filepath.Join(home, ".swallow"))).To(HaveLen(1))
+	})
+})
 
 var _ = Describe("process control", func() {
 	It("propagates the exit code of the wrapped command", func() {
