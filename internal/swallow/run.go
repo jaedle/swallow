@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,6 +20,11 @@ const (
 
 func Run(argv []string) int {
 	agent := os.Getenv("CLAUDECODE") == "1"
+
+	if _, err := exec.LookPath(argv[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "swallow: command not found: %s\n", argv[0])
+		return 127
+	}
 
 	logPath, logFile, err := createLog(argv[0])
 	if err != nil {
@@ -50,6 +56,10 @@ func Run(argv []string) int {
 		tee, teeErr = os.Stdout, os.Stderr
 	}
 
+	signals := make(chan os.Signal, 8)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	go forward(signals, cmd)
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go capture(&wg, stdout, logFile, tagStdout, tee)
@@ -57,6 +67,8 @@ func Run(argv []string) int {
 	wg.Wait()
 
 	code := exitCode(cmd.Wait())
+	signal.Stop(signals)
+	close(signals)
 	_ = logFile.Close()
 
 	if agent {
@@ -69,6 +81,15 @@ func Run(argv []string) int {
 	}
 
 	return code
+}
+
+// forward relays received signals to the child. The child stays in swallow's
+// process group, so an interactive Ctrl-C may reach it twice — an accepted
+// trade-off, see ADR 0005.
+func forward(signals <-chan os.Signal, cmd *exec.Cmd) {
+	for s := range signals {
+		_ = cmd.Process.Signal(s)
+	}
 }
 
 // replay streams the log back, restoring every line to its original stream.

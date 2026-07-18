@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -208,5 +209,70 @@ var _ = Describe("process control", func() {
 		})
 
 		wait(session, 5)
+	})
+
+	It("forwards stdin to the wrapped command", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			stdin:      "hello\n",
+			args:       []string{"cat"},
+		})
+		wait(session, 0)
+
+		Expect(session.Out).To(gbytes.Say("hello"))
+		Expect(logContent(singleLog(swallowDir))).To(ContainSubstring("out|hello\n"))
+	})
+
+	It("forwards termination signals to the wrapped command", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", `trap 'kill $! 2>/dev/null; exit 42' TERM; echo ready; sleep 30 & wait $!`},
+		})
+		Eventually(func() string {
+			logs := findLogs(swallowDir)
+			if len(logs) != 1 {
+				return ""
+			}
+			return logContent(logs[0])
+		}, processTimeout).Should(ContainSubstring("ready"))
+		session.Signal(syscall.SIGTERM)
+
+		wait(session, 42)
+	})
+
+	It("fails with 127 when the command does not exist", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			swallowDir: swallowDir,
+			args:       []string{"definitely-not-here-xyz"},
+		})
+		wait(session, 127)
+
+		Expect(session.Err).To(gbytes.Say("command not found: definitely-not-here-xyz"))
+		Expect(findLogs(swallowDir)).To(BeEmpty())
+	})
+
+	It("accepts a -- separator before the command", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"--", "echo", "hi"},
+		})
+		wait(session, 0)
+
+		Expect(session.Out).To(gbytes.Say("hi"))
+	})
+
+	It("prints usage and fails without a command", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+		})
+		wait(session, 2)
+
+		Expect(session.Err).To(gbytes.Say(`usage: swallow \[--\] <command>`))
 	})
 })
