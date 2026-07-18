@@ -34,3 +34,26 @@ tasks:
       - go mod verify
       - go mod tidy
       - go mod vendor
+
+  release:
+    cmds:
+      - npm clean-install
+      - npx semantic-release
+
+  release:publish:
+    desc: Build versioned release tarballs (called by semantic-release prepare)
+    requires:
+      vars: [VERSION]
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - for:
+          matrix:
+            OS: [linux, darwin]
+            ARCH: [amd64, arm64]
+        cmd: >-
+          GOOS={{.ITEM.OS}} GOARCH={{.ITEM.ARCH}}
+          go build -trimpath -ldflags='-s -w -X main.version={{.VERSION}}'
+          -o out/release/{{.ITEM.OS}}-{{.ITEM.ARCH}}/swallow ./cmd/swallow &&
+          tar -czf out/swallow-v{{.VERSION}}-{{.ITEM.OS}}-{{.ITEM.ARCH}}.tar.gz
+          -C out/release/{{.ITEM.OS}}-{{.ITEM.ARCH}} swallow
