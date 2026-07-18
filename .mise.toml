@@ -1,0 +1,5 @@
+[tools]
+go = "1.26"
+task = "3"
+golangci-lint = "2"
+node = "24"

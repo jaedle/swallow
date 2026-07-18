@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jaedle/pipeline-service/main/schema/config.schema.json
+
+verify:
+  enabled: true
+  docker: false
+
+prs: {}
+
+release:
+  enabled: true
+  docker: false
+
+secrets:
+  - github-token

@@ -1,0 +1,36 @@
+version: '3'
+
+tasks:
+  default:
+    deps: [ci]
+
+  fmt:
+    cmds:
+      - go fmt ./...
+
+  lint:
+    cmds:
+      - golangci-lint run
+
+  test:
+    cmds:
+      - go test ./...
+
+  build:
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - go build -ldflags='-s -w' -o out/swallow ./cmd/swallow
+
+  ci:
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: build
+
+  manage-dependencies:
+    cmds:
+      - go mod verify
+      - go mod tidy
+      - go mod vendor
