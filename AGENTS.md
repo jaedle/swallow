@@ -24,6 +24,7 @@ terms in `docs/GLOSSARY.md` — use the glossary terms consistently.
 | `internal/swallow/logfile.go` | log directory resolution, naming | `docs/spec/logging.md` |
 | `internal/swallow/retention.go` | log pruning | `docs/spec/retention.md` |
 | `test/` | behavior specs against the compiled binary | all |
+| `skills/swallow/` | agent skill installed via `npx skills add` | — |
 | `ci/config.yaml` | CI configuration for jaedle/pipeline-service | — |
 
 ## Verification
@@ -41,6 +42,27 @@ Test conventions:
   must never leak into a spec.
 - Arrange/act/assert as blank-line-separated blocks, bodies short, helpers named.
 - Every timeout is a named constant with a rationale.
+
+## Agent skill
+
+The frontmatter `description` in `skills/swallow/SKILL.md` is the trigger
+surface: it alone decides when a coding agent invokes the skill. Change it
+only with behavioral evidence, not by rewording:
+
+- A/B the old and new description against freshly spawned agents (several
+  Claude models × reasoning efforts) doing small fixture tasks; each agent
+  reports the skills it invoked and every command it ran.
+- Short-output tasks (`git status`/`log`/`diff`, `ls`, file creation, version
+  checks) must not invoke the skill; noisy tasks (test suites, dependency
+  installs, builds) must keep wrapping.
+- Name offending commands explicitly. Abstract rules measured worse: a
+  "~30 lines of output" threshold made models predict output size and skip
+  legitimate test/build wraps.
+- `task verify-skill` only proves the frontmatter parses; it says nothing
+  about trigger quality.
+
+Reference run: [PR #6](https://github.com/jaedle/swallow/pull/6) — false
+positives on short commands 4/18 → 0/18, noisy-command coverage 16/18.
 
 ## Git
 
