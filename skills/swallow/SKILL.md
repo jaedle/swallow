@@ -2,8 +2,10 @@
 name: swallow
 description: >-
   Wrap noisy shell commands (tests, builds, linters, installs) with `swallow`
-  to keep their output out of context. Use whenever running a command expected
-  to produce long output.
+  to keep their output out of context. Use when a command is expected to
+  produce long output. Do NOT use for short-output commands — git
+  status/log/diff, ls, cat, file creation, version checks — run those
+  directly.
 ---
 
 # swallow
