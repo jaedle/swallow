@@ -100,7 +100,7 @@ func slugOf(path string) string {
 }
 
 // readHint extracts the hinted `swallow --read <name>` invocation from a
-// success summary line, as arguments for the binary.
+// start line, as arguments for the binary.
 func readHint(session *gexec.Session) []string {
 	GinkgoHelper()
 
@@ -123,7 +123,7 @@ var _ = Describe("agent mode", func() {
 		wait(session, 0)
 
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, 2 log lines, read logs: `swallow --read [^/`]+\\.log`\n$"))
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\nswallow: done, exit code 0, 2 log lines\n$"))
 		Expect(session.Err.Contents()).To(BeEmpty())
 		log := logContent(singleLog(swallowDir))
 		Expect(log).To(ContainSubstring("out|to-stdout\n"))
@@ -162,13 +162,14 @@ var _ = Describe("agent mode", func() {
 		wait(session, 3)
 
 		stdout := string(session.Out.Contents())
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\n"))
 		Expect(stdout).To(ContainSubstring("first-out\n"))
 		Expect(stdout).To(ContainSubstring("second-out\n"))
 		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
 		stderr := string(session.Err.Contents())
 		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, full output (3 lines):\n"))
 		Expect(stderr).To(ContainSubstring("to-stderr\n"))
-		Expect(stderr).To(MatchRegexp("swallow: end of output, exit code 3, read logs: `swallow --read [^/`]+\\.log`\n$"))
+		Expect(stderr).To(HaveSuffix("swallow: end of output, exit code 3\n"))
 	})
 
 	It("replays only the last 100 lines of a large failing output", func() {
@@ -184,7 +185,7 @@ var _ = Describe("agent mode", func() {
 		stderr := string(session.Err.Contents())
 		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, last 100 of 150 lines:\n"))
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(HavePrefix("swallow: running sh, swallowing output\n51\n"))
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\n51\n"))
 		Expect(stdout).To(HaveSuffix("150\n"))
 		Expect(stdout).NotTo(ContainSubstring("\n50\n"))
 	})

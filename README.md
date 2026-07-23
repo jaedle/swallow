@@ -6,8 +6,8 @@ full output always lands in a log file.
 
 ```
 $ CLAUDECODE=1 swallow go test ./...
-swallow: running go, swallowing output
-swallow: done, exit code 0, 214 log lines, read logs: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
+swallow: running go, log: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
+swallow: done, exit code 0, 214 log lines
 ```
 
 ## Behavior
@@ -16,10 +16,10 @@ swallow: done, exit code 0, 214 log lines, read logs: `swallow --read 2026-07-18
   On success swallow prints the two lines above — the `--read` hint is
   directly runnable. On failure it prints `swallow: done, exit code <n>, …`,
   replays the last 100 output lines — stdout to stdout, stderr to stderr —
-  and closes with a `swallow: end of output, …` marker carrying the read
-  hint, exiting with the command's exit code. Lines swallow prints itself
-  always start with `swallow: `; command arguments are never echoed (they
-  may contain shell-expanded secrets).
+  and closes with a `swallow: end of output, exit code <n>` marker, exiting
+  with the command's exit code. Lines swallow prints itself always start
+  with `swallow: `; command arguments are never echoed (they may contain
+  shell-expanded secrets).
 - **Human mode** (otherwise): output passes through live, and is still
   captured in the log.
 - Logs: one file per run under `~/.swallow/<origin>/` (override the root with

@@ -65,8 +65,10 @@ func Run(argv []string) int {
 	if agent {
 		// The command name only — echoed arguments could leak shell-expanded
 		// secrets into the caller's context, see ADR 0009. Printed only once
-		// the command has started, so every start line gets a done line.
-		fmt.Printf("swallow: running %s, swallowing output\n", filepath.Base(argv[0]))
+		// the command has started, so every start line gets a done line. The
+		// read hint lives here and nowhere else: it is the longest element of
+		// the agent mode output, and every line costs the caller tokens.
+		fmt.Printf("swallow: running %s, log: `swallow --read %s`\n", filepath.Base(argv[0]), filepath.Base(logPath))
 	}
 
 	var tee, teeErr io.Writer
@@ -90,10 +92,9 @@ func Run(argv []string) int {
 	_ = logFile.Close()
 
 	if agent {
-		hint := fmt.Sprintf("read logs: `swallow --read %s`", filepath.Base(logPath))
 		lines := countLogLines(logPath)
 		if code == 0 {
-			fmt.Printf("swallow: done, exit code 0, %d log lines, %s\n", lines, hint)
+			fmt.Printf("swallow: done, exit code 0, %d log lines\n", lines)
 		} else {
 			if lines > replayLimit {
 				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, last %d of %d lines:\n", code, replayLimit, lines)
@@ -102,7 +103,7 @@ func Run(argv []string) int {
 				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output (%d lines):\n", code, lines)
 				replay(logPath, 0)
 			}
-			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, %s\n", code, hint)
+			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d\n", code)
 		}
 	}
 
