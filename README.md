@@ -6,17 +6,19 @@ full output always lands in a log file.
 
 ```
 $ CLAUDECODE=1 swallow go test ./...
-swallow: running go, log: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
-swallow: done, exit code 0, 214 log lines
+swallow: running go, swallowing output
+swallow: done, exit code 0, 214 log lines, read: `swallow --read 2026-07-18T10-15-30-go-a1b2c3.log`
 ```
 
 ## Behavior
 
 - **Agent mode** (`CLAUDECODE=1`, set by Claude Code): output is suppressed.
   On success swallow prints the two lines above — the `--read` hint is
-  directly runnable. On failure it prints `swallow: done, exit code <n>, …`,
-  replays the last 100 output lines — stdout to stdout, stderr to stderr —
-  and closes with a `swallow: end of output, exit code <n>` marker, exiting
+  directly runnable. Short successful output (10 lines or fewer) is passed
+  straight through instead, so wrapping a quiet command costs next to
+  nothing. On failure it prints `swallow: done, exit code <n>, …`, replays
+  the last 100 output lines — stdout to stdout, stderr to stderr — and
+  closes with a `swallow: end of output, exit code <n>, …` marker, exiting
   with the command's exit code. Lines swallow prints itself always start
   with `swallow: `; command arguments are never echoed (they may contain
   shell-expanded secrets).

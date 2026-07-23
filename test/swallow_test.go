@@ -110,7 +110,7 @@ func readHint(session *gexec.Session) []string {
 }
 
 var _ = Describe("agent mode", func() {
-	It("announces the run, suppresses output and reports success with a runnable read hint", func() {
+	It("announces the run and passes short successful output through, split by stream", func() {
 		swallowDir := GinkgoT().TempDir()
 		origin := GinkgoT().TempDir()
 
@@ -123,11 +123,51 @@ var _ = Describe("agent mode", func() {
 		wait(session, 0)
 
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\nswallow: done, exit code 0, 2 log lines\n$"))
-		Expect(session.Err.Contents()).To(BeEmpty())
+		Expect(stdout).To(Equal("swallow: running sh, swallowing output\nswallow: done, exit code 0, output (2 lines):\nto-stdout\n"))
+		Expect(string(session.Err.Contents())).To(Equal("to-stderr\n"))
 		log := logContent(singleLog(swallowDir))
 		Expect(log).To(ContainSubstring("out|to-stdout\n"))
 		Expect(log).To(ContainSubstring("err|to-stderr\n"))
+	})
+
+	It("passes output up to the ten-line limit through", func() {
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"sh", "-c", "seq 10"},
+		})
+		wait(session, 0)
+
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(ContainSubstring("swallow: done, exit code 0, output (10 lines):\n1\n"))
+		Expect(stdout).To(HaveSuffix("\n10\n"))
+	})
+
+	It("reports a success without output on a single line", func() {
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: GinkgoT().TempDir(),
+			args:       []string{"true"},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(Equal("swallow: running true, swallowing output\nswallow: done, exit code 0, no output\n"))
+		Expect(session.Err.Contents()).To(BeEmpty())
+	})
+
+	It("swallows longer successful output and reports a runnable read hint", func() {
+		swallowDir := GinkgoT().TempDir()
+
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: swallowDir,
+			args:       []string{"sh", "-c", "seq 11"},
+		})
+		wait(session, 0)
+
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, 11 log lines, read: `swallow --read [^/`]+\\.log`\n$"))
+		Expect(session.Err.Contents()).To(BeEmpty())
 	})
 
 	It("offers a read hint that works verbatim from the same working directory", func() {
@@ -137,7 +177,7 @@ var _ = Describe("agent mode", func() {
 			agent:      true,
 			swallowDir: swallowDir,
 			dir:        origin,
-			args:       []string{"echo", "captured"},
+			args:       []string{"sh", "-c", "seq 11; echo captured"},
 		})
 		wait(capture, 0)
 
@@ -162,7 +202,7 @@ var _ = Describe("agent mode", func() {
 		wait(session, 3)
 
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\n"))
+		Expect(stdout).To(HavePrefix("swallow: running sh, swallowing output\n"))
 		Expect(stdout).To(ContainSubstring("first-out\n"))
 		Expect(stdout).To(ContainSubstring("second-out\n"))
 		Expect(stdout).NotTo(ContainSubstring("to-stderr"))
@@ -172,7 +212,7 @@ var _ = Describe("agent mode", func() {
 		Expect(stderr).To(HaveSuffix("swallow: end of output, exit code 3\n"))
 	})
 
-	It("replays only the last 100 lines of a large failing output", func() {
+	It("replays only the last 100 lines of a large failing output, hinting at the full log", func() {
 		swallowDir := GinkgoT().TempDir()
 
 		session := run(runOptions{
@@ -184,8 +224,9 @@ var _ = Describe("agent mode", func() {
 
 		stderr := string(session.Err.Contents())
 		Expect(stderr).To(HavePrefix("swallow: done, exit code 3, last 100 of 150 lines:\n"))
+		Expect(stderr).To(MatchRegexp("swallow: end of output, exit code 3, read: `swallow --read [^/`]+\\.log`\n$"))
 		stdout := string(session.Out.Contents())
-		Expect(stdout).To(MatchRegexp("^swallow: running sh, log: `swallow --read [^/`]+\\.log`\n51\n"))
+		Expect(stdout).To(HavePrefix("swallow: running sh, swallowing output\n51\n"))
 		Expect(stdout).To(HaveSuffix("150\n"))
 		Expect(stdout).NotTo(ContainSubstring("\n50\n"))
 	})
