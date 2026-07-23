@@ -1,11 +1,12 @@
 ---
 name: swallow
 description: >-
-  Wrap noisy shell commands (tests, builds, linters, installs) with `swallow`
-  to keep their output out of context. Use when a command is expected to
-  produce long output. Do NOT use for short-output commands — git
-  status/log/diff, ls, cat, file creation, version checks — run those
-  directly.
+  Wrap noisy shell commands (tests, builds, linters, installs) with
+  `swallow` to keep their output out of context. Use when only the outcome
+  matters — a failure still replays its last 100 lines, so nothing is lost
+  by wrapping. Never wrap a command whose output you need to read — git
+  status/log/diff, grep and other searches, ls, cat, file creation, version
+  checks — run those directly.
 ---
 
 # swallow
