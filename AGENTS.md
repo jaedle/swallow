@@ -80,6 +80,13 @@ trials, haiku/sonnet/opus × reasoning efforts, three description variants):
 - Claude Code truncates skill listings for small models: haiku sessions saw
   the bare name `- swallow` with no description text, so description tuning
   cannot reach haiku-driven agents at all.
+- Pass-through (success output ≤ 10 lines printed directly) is the stronger
+  lever: it caps the cost of a needless wrap at ~20 tokens with nothing
+  withheld — instead of a hidden answer plus a `--read` round trip — so the
+  description can invite wrapping when in doubt. Benchmarked with that
+  description (arm D, same harness): false positives stayed 0/28, and it
+  was the only variant where agents wrapped the test run inside the
+  multi-step task (2/4 vs 0/10 for the restrictive descriptions).
 
 ## Git
 
