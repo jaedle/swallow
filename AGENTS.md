@@ -64,7 +64,8 @@ only with behavioral evidence, not by rewording:
 Reference run: [PR #6](https://github.com/jaedle/swallow/pull/6) — false
 positives on short commands 4/18 → 0/18, noisy-command coverage 16/18.
 
-Findings from the 2026-07 invocation research (152 headless one-shot
+Findings from the 2026-07 invocation research
+([PR #7](https://github.com/jaedle/swallow/pull/7) — 152 headless one-shot
 trials, haiku/sonnet/opus × reasoning efforts, three description variants):
 
 - Fresh agents did not over-invoke at all: 0 false positives across 82
