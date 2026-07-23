@@ -21,7 +21,7 @@ log file.
 - Timestamp: `YYYY-MM-DDTHH-MM-SS`, local time — lexically sortable so old
   logs can be recognized for [retention](retention.md).
 - Command: slug of the basename of the wrapped command's argv[0] — slugging
-  keeps the log name shell-safe so the read hint printed after a run is
+  keeps the log name shell-safe so the read hint printed by a run is
   runnable verbatim.
 - Suffix: 6 hex characters from a cryptographic random source — reruns and
   concurrent runs always produce distinct logs.

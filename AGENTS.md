@@ -64,6 +64,30 @@ only with behavioral evidence, not by rewording:
 Reference run: [PR #6](https://github.com/jaedle/swallow/pull/6) — false
 positives on short commands 4/18 → 0/18, noisy-command coverage 16/18.
 
+Findings from the 2026-07 invocation research
+([PR #7](https://github.com/jaedle/swallow/pull/7) — 152 headless one-shot
+trials, haiku/sonnet/opus × reasoning efforts, three description variants):
+
+- Fresh agents did not over-invoke at all: 0 false positives across 82
+  short-output / output-needed tasks in every variant. The measured failure
+  mode is the opposite — noisy commands ran unwrapped in ~60% of trials,
+  worst inside multi-step tasks. Perceived over-invocation is more likely
+  session dynamics (skill body loaded once, repo instructions priming
+  swallow) than the description.
+- An "output longer than N lines" threshold again measured no better:
+  false positives unchanged at 0, coverage slightly worse. Do not encode
+  output-size predictions.
+- Claude Code truncates skill listings for small models: haiku sessions saw
+  the bare name `- swallow` with no description text, so description tuning
+  cannot reach haiku-driven agents at all.
+- Pass-through (success output ≤ 10 lines printed directly) is the stronger
+  lever: it caps the cost of a needless wrap at ~20 tokens with nothing
+  withheld — instead of a hidden answer plus a `--read` round trip — so the
+  description can invite wrapping when in doubt. Benchmarked with that
+  description (arm D, same harness): false positives stayed 0/28, and it
+  was the only variant where agents wrapped the test run inside the
+  multi-step task (2/4 vs 0/10 for the restrictive descriptions).
+
 ## Git
 
 - Work directly on `main` (owner's instruction for this repo).

@@ -17,13 +17,17 @@
 - **Start Line** — the `swallow: running <command>, swallowing output` line
   printed in agent mode once the command has started; never echoes arguments.
 - **Summary Line** — the `swallow: done, exit code <n>, …` line of every
-  agent mode run: on success it carries the read hint, on failure it
-  precedes the replay.
+  agent mode run: on success it reports no output, a pass-through, or the
+  log line count with the read hint; on failure it precedes the replay.
+- **Pass-Through** — printing a successful run's output directly after the
+  summary line when it is at most 10 log lines: withholding a short output
+  costs more than showing it, and it makes a needless wrap harmless.
 - **End Marker** — the `swallow: end of output, exit code <n>, …` line
-  closing a failure replay: proves the replay is complete, repeats the
-  verdict, and carries the read hint.
+  closing a failure replay: proves the replay is complete and repeats the
+  verdict; carries the read hint when the replay was truncated.
 - **Read Hint** — the runnable `` `swallow --read <log file name>` `` snippet
-  in the summary line and end marker; resolves via bare-name resolution.
+  in the long-success summary line and the truncated-failure end marker;
+  resolves via bare-name resolution.
 - **Replay** — streaming the log back after a failed run in agent mode,
   restoring stdout lines to stdout and stderr lines to stderr.
 - **Read** — printing a stored log verbatim via `swallow --read`, permitted

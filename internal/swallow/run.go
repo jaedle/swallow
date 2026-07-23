@@ -23,6 +23,13 @@ const (
 	// The last lines win — that is where the error usually is; the full log
 	// stays available via the read hint.
 	replayLimit = 100
+
+	// passThroughLimit: successful output at most this long is printed
+	// directly — withholding it would cost more than showing it (the read
+	// hint alone is about as long as five output lines, and a hidden short
+	// answer usually triggers a read round trip on top). This makes a
+	// needless wrap harmless, so callers can wrap when in doubt.
+	passThroughLimit = 10
 )
 
 func Run(argv []string) int {
@@ -90,19 +97,30 @@ func Run(argv []string) int {
 	_ = logFile.Close()
 
 	if agent {
-		hint := fmt.Sprintf("read logs: `swallow --read %s`", filepath.Base(logPath))
+		// The read hint is printed at most once per run, and only when
+		// output was actually withheld: it is the longest element of the
+		// agent mode output, and every line costs the caller tokens.
 		lines := countLogLines(logPath)
 		if code == 0 {
-			fmt.Printf("swallow: done, exit code 0, %d log lines, %s\n", lines, hint)
+			switch {
+			case lines == 0:
+				fmt.Printf("swallow: done, exit code 0, no output\n")
+			case lines <= passThroughLimit:
+				fmt.Printf("swallow: done, exit code 0, output (%d lines):\n", lines)
+				replay(logPath, 0)
+			default:
+				fmt.Printf("swallow: done, exit code 0, %d log lines, read: `swallow --read %s`\n", lines, filepath.Base(logPath))
+			}
 		} else {
 			if lines > replayLimit {
 				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, last %d of %d lines:\n", code, replayLimit, lines)
 				replay(logPath, lines-replayLimit)
+				fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, read: `swallow --read %s`\n", code, filepath.Base(logPath))
 			} else {
 				fmt.Fprintf(os.Stderr, "swallow: done, exit code %d, full output (%d lines):\n", code, lines)
 				replay(logPath, 0)
+				fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d\n", code)
 			}
-			fmt.Fprintf(os.Stderr, "swallow: end of output, exit code %d, %s\n", code, hint)
 		}
 	}
 
