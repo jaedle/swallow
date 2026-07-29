@@ -9,6 +9,5 @@ prs: {}
 release:
   enabled: true
   docker: false
-
-secrets:
-  - github-token
+  secrets:
+    - github-token
