@@ -7,8 +7,8 @@ swallow runs in exactly one of two modes, decided per run.
 Agent mode is active if and only if the environment variable `CLAUDECODE`
 equals `1` (the marker Claude Code sets for processes it spawns) or the
 environment variable `OPENCODE` equals `1` (the marker OpenCode sets for
-processes it spawns). Any other value of both markers — including empty or
-`true` — means human mode.
+processes it spawns). Neither marker equaling `1` — including empty or
+`true` values — means human mode.
 
 ## Agent mode
 
