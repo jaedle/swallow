@@ -243,8 +243,8 @@ var _ = Describe("agent mode", func() {
 		Expect(string(session.Err.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
 	})
 
-	It("treats only CLAUDECODE=1 as an agentic caller", func() {
-		for _, value := range []string{"CLAUDECODE=", "CLAUDECODE=true"} {
+	It("treats only the exact values CLAUDECODE=1 and OPENCODE=1 as an agentic caller", func() {
+		for _, value := range []string{"CLAUDECODE=", "CLAUDECODE=true", "OPENCODE=", "OPENCODE=true"} {
 			session := run(runOptions{
 				swallowDir: GinkgoT().TempDir(),
 				env:        []string{value},
@@ -255,6 +255,31 @@ var _ = Describe("agent mode", func() {
 			Expect(session.Out).To(gbytes.Say("visible"))
 			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("swallow:"))
 		}
+	})
+
+	It("treats OPENCODE=1 as an agentic caller", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			env:        []string{"OPENCODE=1"},
+			args:       []string{"sh", "-c", "seq 11"},
+		})
+		wait(session, 0)
+
+		stdout := string(session.Out.Contents())
+		Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, 11 log lines, read: `swallow --read [^/`]+\\.log`\n$"))
+		Expect(session.Err.Contents()).To(BeEmpty())
+	})
+
+	It("stays in agent mode when both markers are set", func() {
+		session := run(runOptions{
+			agent:      true,
+			swallowDir: GinkgoT().TempDir(),
+			env:        []string{"OPENCODE=1"},
+			args:       []string{"echo", "suppressed"},
+		})
+		wait(session, 0)
+
+		Expect(string(session.Out.Contents())).To(HavePrefix("swallow: running echo, swallowing output\n"))
 	})
 })
 
