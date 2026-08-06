@@ -33,7 +33,7 @@ const (
 )
 
 func Run(argv []string) int {
-	agent := os.Getenv("CLAUDECODE") == "1"
+	agent := os.Getenv("CLAUDECODE") == "1" || os.Getenv("OPENCODE") == "1"
 
 	if dir, err := swallowDir(); err == nil {
 		prune(dir)

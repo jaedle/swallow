@@ -3,7 +3,8 @@
 - **Run** — one invocation of `swallow <command>`: execute the command, stream
   its output to exactly one log, exit with the command's exit code.
 - **Agent Mode** — the mode active when the environment variable `CLAUDECODE`
-  equals `1`: output is suppressed and only summarized/replayed.
+  or `OPENCODE` equals `1` (the markers Claude Code and OpenCode set for
+  processes they spawn): output is suppressed and only summarized/replayed.
 - **Human Mode** — the mode active otherwise: output is teed live to the
   terminal in addition to the log.
 - **Origin** — the working directory swallow was invoked from; determines the
