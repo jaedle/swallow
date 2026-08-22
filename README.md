@@ -12,7 +12,8 @@ swallow: done, exit code 0, 214 log lines, read: `swallow --read 2026-07-18T10-1
 
 ## Behavior
 
-- **Agent mode** (`CLAUDECODE=1` or `OPENCODE=1`, set by the agent): output is suppressed.
+- **Agent mode** (`CLAUDECODE=1`, `OPENCODE=1` or `CURSOR_AGENT` non-empty,
+  set by the agent): output is suppressed.
   On success swallow prints the two lines above — the `--read` hint is
   directly runnable. Short successful output (10 lines or fewer) is passed
   straight through instead, so wrapping a quiet command costs next to
