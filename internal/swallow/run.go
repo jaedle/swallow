@@ -33,7 +33,9 @@ const (
 )
 
 func Run(argv []string) int {
-	agent := os.Getenv("CLAUDECODE") == "1" || os.Getenv("OPENCODE") == "1"
+	// CURSOR_AGENT counts by presence (any non-empty value): Cursor's value
+	// semantics are undocumented, see ADR 0010.
+	agent := os.Getenv("CLAUDECODE") == "1" || os.Getenv("OPENCODE") == "1" || os.Getenv("CURSOR_AGENT") != ""
 
 	if dir, err := swallowDir(); err == nil {
 		prune(dir)

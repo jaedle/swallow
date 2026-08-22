@@ -23,6 +23,9 @@ Extended 2026-08-06: agent mode is also active when `OPENCODE=1` — the marker
 OpenCode sets for every process it spawns. The strict `==1` rule stays
 symmetric for both markers; the title and file name stay.
 
+Extended 2026-08-22: agent mode is also active when `CURSOR_AGENT` is set to
+any non-empty value — presence, not `==1` (see ADR 0010).
+
 ## Consequences
 
 - Deterministic and trivially testable; no TTY heuristics that misfire in
