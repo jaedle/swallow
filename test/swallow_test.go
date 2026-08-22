@@ -281,6 +281,33 @@ var _ = Describe("agent mode", func() {
 
 		Expect(string(session.Out.Contents())).To(HavePrefix("swallow: running echo, swallowing output\n"))
 	})
+
+	It("treats any non-empty CURSOR_AGENT value as an agentic caller", func() {
+		for _, value := range []string{"CURSOR_AGENT=1", "CURSOR_AGENT=some-arbitrary-value"} {
+			session := run(runOptions{
+				swallowDir: GinkgoT().TempDir(),
+				env:        []string{value},
+				args:       []string{"sh", "-c", "seq 11"},
+			})
+			wait(session, 0)
+
+			stdout := string(session.Out.Contents())
+			Expect(stdout).To(MatchRegexp("^swallow: running sh, swallowing output\nswallow: done, exit code 0, 11 log lines, read: `swallow --read [^/`]+\\.log`\n$"))
+			Expect(session.Err.Contents()).To(BeEmpty())
+		}
+	})
+
+	It("treats an empty CURSOR_AGENT as a human caller", func() {
+		session := run(runOptions{
+			swallowDir: GinkgoT().TempDir(),
+			env:        []string{"CURSOR_AGENT="},
+			args:       []string{"echo", "visible"},
+		})
+		wait(session, 0)
+
+		Expect(session.Out).To(gbytes.Say("visible"))
+		Expect(string(session.Out.Contents())).NotTo(ContainSubstring("swallow:"))
+	})
 })
 
 var _ = Describe("human mode", func() {

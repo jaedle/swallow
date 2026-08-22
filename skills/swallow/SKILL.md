@@ -41,6 +41,9 @@ anything else is output of the wrapped command.
 
 ## Notes
 
+- Cursor is auto-detected via `CURSOR_AGENT` (any non-empty value) — the
+  agent mode described here applies to Cursor sessions too.
+
 - Need output from a successful run? Run the hinted
   `swallow --read <log-file>` command verbatim (works only from the same
   working directory).

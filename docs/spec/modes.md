@@ -5,10 +5,14 @@ swallow runs in exactly one of two modes, decided per run.
 ## Detection
 
 Agent mode is active if and only if the environment variable `CLAUDECODE`
-equals `1` (the marker Claude Code sets for processes it spawns) or the
+equals `1` (the marker Claude Code sets for processes it spawns), the
 environment variable `OPENCODE` equals `1` (the marker OpenCode sets for
-processes it spawns). Neither marker equaling `1` — including empty or
-`true` values — means human mode.
+processes it spawns), or the environment variable `CURSOR_AGENT` is set to
+any non-empty value (the marker Cursor sets for agent-spawned processes —
+its value semantics are unknown, so presence is the test, see ADR 0010).
+Without any of these — neither `CLAUDECODE` nor `OPENCODE` equaling `1`
+(including empty or `true` values) and `CURSOR_AGENT` unset or empty — the
+mode is human.
 
 ## Agent mode
 
