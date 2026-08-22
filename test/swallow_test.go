@@ -243,7 +243,7 @@ var _ = Describe("agent mode", func() {
 		Expect(string(session.Err.Contents())).NotTo(ContainSubstring("s3cr3t-value"))
 	})
 
-	It("treats only the exact values CLAUDECODE=1 and OPENCODE=1 as an agentic caller", func() {
+	It("treats CLAUDECODE and OPENCODE as agentic callers only for the exact value 1", func() {
 		for _, value := range []string{"CLAUDECODE=", "CLAUDECODE=true", "OPENCODE=", "OPENCODE=true"} {
 			session := run(runOptions{
 				swallowDir: GinkgoT().TempDir(),
